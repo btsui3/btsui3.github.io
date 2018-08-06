@@ -46,10 +46,10 @@ ___
 ___
 
 ### **Technical Skills**
-- **Front-End:** HTML5, CSS3, JavaScript, jQuery, AngularJS, Bootstrap, TypeScript
+- **Front-End:** HTML5, CSS3, JavaScript, jQuery, AngularJS, Bootstrap, TypeScript, React
 - **Middle Tier:** ASP.NET MVC 5, C#, WebApi 2, Python3
-- **Back-End:** MS SQL Server (SSMS), T-SQL, Azure & AWS Hosting, Azure Table Storage (ATS) 
-- **Web API & Libraries:** SendGrid, Google Maps, AWS s3, RazorEngine
+- **Back-End:** MS SQL Server (SSMS), T-SQL, Azure & AWS Hosting(EC2, S3 Bucket), Azure Table Storage (ATS) 
+- **Web API & Libraries:** SendGrid, Google Maps, RazorEngine
 - **Additional Technologies:** jQuery, AJAX, Visual Studio, Team Foundation Server (TFS) GIT & GitHub, Chrome DevTools, Postman, Scrum/Agile VS Teams, MATLAB, SIMULINK
 
 ___
