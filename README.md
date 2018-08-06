@@ -6,7 +6,7 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 [![Github][4]][3] Github
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-[![phone][5]][6] (423-710-4947)
+[![phone][5]][6] (626-733-8784)
 
 ___
 ### **Professional Experience**
@@ -58,10 +58,10 @@ ___
 Bachelor of Science, Chemical & Biomolecular Engineering
 
   [1]: https://www.linkedin.com/in/benjamin-tsui-2b878436
-  [2]: https://png.icons8.com/metro/20/000000/linkedin.png (Benjamin's LinkedIn Profile)
+  [2]: https://png.icons8.com/metro/20/000000/linkedin.png
   [3]: https://github.com/btsui3
-  [4]: https://png.icons8.com/metro/20/000000/github.png (Benjamin's GitHub Profile)
+  [4]: https://png.icons8.com/metro/20/000000/github.png 
   [5]: https://png.icons8.com/metro/20/000000/phone.png
   [6]: href="#">
   [7]: mailto:btsui4@gmail.com
-  [8]: https://png.icons8.com/metro/20/000000/new-post.png (Benjamin's Email)
+  [8]: https://png.icons8.com/metro/20/000000/new-post.png
