@@ -1,6 +1,9 @@
 import './App.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import benSrc from './assets/Ben.png';
+import moonSrc from './assets/moon.jpg';
+import normalSrc from './assets/normal.jpg';
 function App() {
 
   const scene = new THREE.Scene();
@@ -41,23 +44,23 @@ function App() {
     const star = new THREE.Mesh(geometry, material);
 
     const [x, y, z] = Array(3)
-      .fill()
+      .fill(null)
       .map(() => THREE.MathUtils.randFloatSpread(100));
 
     star.position.set(x, y, z);
     scene.add(star);
   }
 
-  Array(200).fill().forEach(addStar);
+  Array(200).fill(null).forEach(addStar);
 
   // Avatar
-  const benTexture = new THREE.TextureLoader().load('src/assets/Ben.png');
+  const benTexture = new THREE.TextureLoader().load(benSrc);
   const ben = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), new THREE.MeshBasicMaterial({ map: benTexture }));
 
   scene.add(ben);
 
-  const moonTexture = new THREE.TextureLoader().load('src/assets/moon.jpg');
-  const normalTexture = new THREE.TextureLoader().load('src/assets/normal.jpg');
+  const moonTexture = new THREE.TextureLoader().load(moonSrc);
+  const normalTexture = new THREE.TextureLoader().load(normalSrc);
 
   const moon = new THREE.Mesh(
     new THREE.SphereGeometry(3, 32, 32),
@@ -96,7 +99,7 @@ function App() {
 
   animate();
 
-  return
+  return (<div></div>)
 }
 
 export default App

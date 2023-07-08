@@ -5,4 +5,7 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   base: '/btsui3.github.io/',
   plugins: [react()],
+  build: {
+    assetsDir: 'assets', // your desired directory
+  },
 })
