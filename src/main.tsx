@@ -1,10 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
+import App from './Space.tsx'
 import './index.css'
 import Root from "./routes/root";
 import ErrorPage from "./error-page";
-
 import {
   createBrowserRouter,
   RouterProvider,
@@ -17,11 +16,17 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
   },
   {
-    path: "/btsui3.github.io/",
+    path: "/space",
     element: <App />,
     errorElement: <ErrorPage />,
   },
-]);
+  {
+    path: "*",
+    element: <ErrorPage />
+  },
+], {
+  basename: "/btsui3.github.io/",
+});
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <RouterProvider router={router} />
