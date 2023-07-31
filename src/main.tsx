@@ -25,7 +25,7 @@ const router = createBrowserRouter([
     element: <ErrorPage />
   },
 ], {
-  basename: "/btsui3.github.io/",
+  basename: "/",
 });
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
