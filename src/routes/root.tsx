@@ -1,18 +1,15 @@
-import { Link } from 'react-router-dom';
+import LandingPage from './LandingPage';
+import bensnow from './../assets/Ben-Snow.png';
 
 export default function Root() {
   return (
-    <>
-      <div id="sidebar">
-        <h1>Ben Testing in Production</h1>
-        <nav>
-          <ul>
-            <li>
-              <Link to="/space">Navigate Through Space</Link>
-            </li>
-          </ul>
-        </nav>
-      </div>
-    </>
+      <LandingPage
+      name="Ben"
+      description="A passionate software developer."
+      imageUrl={bensnow}
+      projectsUrl=""
+      githubUrl="https://github.com/btsui3"
+      linkedInUrl="https://linkedin.com/in/benjamin-tsui-2b878436"
+    />
   );
 }

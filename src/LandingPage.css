@@ -1,0 +1,16 @@
+.landing-page {
+  text-align: center;
+  padding: 50px;
+}
+
+.landing-page img {
+  width: 100%;       
+  height: auto;      
+  max-width: 500px;  
+  object-fit: cover; /* This will make sure the image covers the area of the img tag, and the image won't be stretched. */
+  margin: auto;      /* This will center the image if its container is bigger than the image itself. */
+}
+
+.landing-page .links a {
+  margin: 0 10px;
+}
