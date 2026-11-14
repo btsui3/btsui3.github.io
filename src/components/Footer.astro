@@ -1,0 +1,48 @@
+---
+import { profile } from '../data/site';
+const year = new Date().getFullYear();
+---
+
+<footer>
+  <div class="wrap row">
+    <p>
+      © {year} {profile.name}. Built with Astro; every contour line is drawn live in your browser.
+    </p>
+    <ul>
+      <li><a href="/blog/">Writing</a></li>
+      <li><a href="/rss.xml">RSS</a></li>
+      <li><a href={profile.links.github} target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href={profile.links.linkedin} target="_blank" rel="noopener">LinkedIn</a></li>
+      <li><a href="https://github.com/btsui3/btsui3.github.io" target="_blank" rel="noopener">Source</a></li>
+    </ul>
+  </div>
+</footer>
+
+<style>
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-block: 28px 36px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 14px 30px;
+  }
+  p {
+    margin: 0;
+  }
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  a {
+    text-decoration: none;
+  }
+</style>

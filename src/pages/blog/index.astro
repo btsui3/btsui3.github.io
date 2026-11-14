@@ -1,0 +1,93 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getPosts, formatDate } from '../../lib/posts';
+const posts = await getPosts();
+---
+
+<Base title="Writing" description="Notes on building software: what worked, what broke, and what I would do differently.">
+  <section class="wrap page">
+    <p class="label"><b>Log</b> &nbsp;/&nbsp; Writing</p>
+    <h1>Writing</h1>
+    <p class="lede">Notes on building software: what worked, what broke, and what I would do differently.</p>
+
+    <ul>
+      {
+        posts.map((post) => (
+          <li>
+            <a href={`/blog/${post.id}/`}>
+              <time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+              <h2>{post.data.title}</h2>
+              <p>{post.data.description}</p>
+              <div class="tags">
+                {post.data.draft && <span class="chip draft">Draft</span>}
+                {post.data.tags.map((t) => (
+                  <span class="chip">{t}</span>
+                ))}
+              </div>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    {posts.length === 0 && <p class="lede">Nothing published yet. Check back soon.</p>}
+  </section>
+</Base>
+
+<style>
+  .page {
+    padding-block: 150px 110px;
+    max-width: 860px;
+  }
+  h1 {
+    font-size: clamp(52px, 9vw, 112px);
+    margin: 20px 0 22px;
+  }
+  .lede {
+    color: var(--ink-soft);
+    font-size: 19px;
+    max-width: 52ch;
+    margin-bottom: 52px;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--rule-strong);
+  }
+  li a {
+    display: block;
+    padding: 30px 4px;
+    border-bottom: 1px solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+    transition: padding 0.3s, background-color 0.3s;
+  }
+  li a:hover {
+    padding-inline: 18px;
+    background: var(--bg-raised);
+  }
+  time {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 38px);
+    margin: 8px 0 10px;
+    line-height: 1.12;
+  }
+  li p {
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+    max-width: 62ch;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .draft {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+</style>

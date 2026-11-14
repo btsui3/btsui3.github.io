@@ -1,0 +1,340 @@
+---
+import { projects } from '../data/site';
+
+const filters = [
+  { id: 'all', label: 'Everything' },
+  { id: 'backend', label: 'Backend' },
+  { id: 'frontend', label: 'Frontend' },
+  { id: 'data', label: 'Data' },
+  { id: 'systems', label: 'Systems' },
+];
+---
+
+<section class="section" id="projects" aria-labelledby="projects-title">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label" data-reveal><b>02</b> &nbsp;/&nbsp; Projects</p>
+      <h2 id="projects-title" data-reveal>Things I have <em>built</em></h2>
+      <p data-reveal>
+        Side projects and experiments. Each one gets its own terrain, generated from the project's name, so no two maps
+        are alike.
+      </p>
+    </header>
+
+    <div class="filters" role="group" aria-label="Filter projects" data-reveal>
+      {
+        filters.map((f, i) => (
+          <button type="button" class="filter" data-filter={f.id} aria-pressed={i === 0 ? 'true' : 'false'}>
+            {f.label}
+          </button>
+        ))
+      }
+      <span class="count label" data-count aria-live="polite"></span>
+    </div>
+
+    <ul class="grid" data-grid>
+      {
+        projects.map((p, i) => (
+          <li class="project" data-project data-area={p.area.join(' ')} data-reveal style={`--delay: ${(i % 3) * 70}ms`}>
+            <article class="tile" data-tilt>
+              <div class="cover">
+                <canvas data-cover data-seed={p.name} aria-hidden="true" />
+                <span class="year label">{p.year}</span>
+              </div>
+              <div class="body">
+                <h3>{p.name}</h3>
+                <p class="blurb">{p.blurb}</p>
+                <p class="detail">{p.detail}</p>
+                <ul class="tags" aria-label="Technologies">
+                  {p.tags.map((t) => (
+                    <li class="chip">{t}</li>
+                  ))}
+                </ul>
+                {p.repo && (
+                  <a class="source" href={p.repo} target="_blank" rel="noopener">
+                    Source on GitHub <span aria-hidden="true">↗</span>
+                  </a>
+                )}
+              </div>
+            </article>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<script>
+  import { createNoise, fbm, contour, hashString, ramp, readThemeColors } from '../lib/terrain';
+
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  // ---- Generated covers -------------------------------------------------
+  type Cover = { canvas: HTMLCanvasElement; draw: (t: number) => void; raf: number; t: number };
+  const covers: Cover[] = [];
+
+  let colors = readThemeColors();
+
+  document.querySelectorAll<HTMLCanvasElement>('[data-cover]').forEach((canvas) => {
+    const seed = hashString(canvas.dataset.seed ?? 'x');
+    const noise = createNoise(seed);
+    const ctx = canvas.getContext('2d')!;
+    const cell = 9;
+    const ox = (seed % 997) / 10;
+    const oy = ((seed >>> 8) % 997) / 10;
+    const scale = 1 / (130 + (seed % 60));
+
+    const draw = (t: number) => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = rect.width;
+      const h = rect.height;
+      if (canvas.width !== Math.round(w * dpr)) {
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const cols = Math.ceil(w / cell) + 2;
+      const rows = Math.ceil(h / cell) + 2;
+      const field = new Float32Array(cols * rows);
+      let k = 0;
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const x = i * cell;
+          const y = j * cell;
+          // A central dome keeps every cover reading as one distinct peak.
+          const dx = (x - w * 0.5) / w;
+          const dy = (y - h * 0.55) / h;
+          const dome = 0.55 * Math.exp(-(dx * dx + dy * dy) * 5);
+          field[k++] = fbm(noise, ox + x * scale + t * 0.05, oy + y * scale + t * 0.03, 3) * 0.7 + dome;
+        }
+      }
+      ctx.clearRect(0, 0, w, h);
+      const emit = (x1: number, y1: number, x2: number, y2: number) => {
+        ctx.moveTo((x1 - 0.5) * cell, (y1 - 0.5) * cell);
+        ctx.lineTo((x2 - 0.5) * cell, (y2 - 0.5) * cell);
+      };
+      for (let n = 0; n < 15; n++) {
+        const level = -0.7 + n * 0.13;
+        const top = level > 0.72;
+        ctx.beginPath();
+        contour(field, cols, rows, level, emit);
+        const t = (level + 0.7) / 1.42;
+        const alpha = colors.alphaLow + (colors.alphaHigh - colors.alphaLow) * t;
+        ctx.strokeStyle = top ? colors.hot : ramp(colors.stops, t, n % 4 === 0 ? Math.min(1, alpha + 0.2) : alpha);
+        ctx.lineWidth = top ? 1.7 : n % 4 === 0 ? 1.5 : 1;
+        ctx.stroke();
+      }
+    };
+
+    const cover: Cover = { canvas, draw, raf: 0, t: 0 };
+    covers.push(cover);
+    draw(0);
+
+    // Terrain drifts while the card is hovered or focused.
+    const tile = canvas.closest<HTMLElement>('.tile')!;
+    const play = () => {
+      if (reduceMotion || cover.raf) return;
+      let last = performance.now();
+      const step = (now: number) => {
+        cover.t += (now - last) / 1000;
+        last = now;
+        draw(cover.t);
+        cover.raf = requestAnimationFrame(step);
+      };
+      cover.raf = requestAnimationFrame(step);
+    };
+    const pause = () => {
+      cancelAnimationFrame(cover.raf);
+      cover.raf = 0;
+    };
+    tile.addEventListener('pointerenter', play);
+    tile.addEventListener('pointerleave', pause);
+    tile.addEventListener('focusin', play);
+    tile.addEventListener('focusout', pause);
+  });
+
+  const redrawAll = () => covers.forEach((c) => c.draw(c.t));
+  window.addEventListener('themechange', () => {
+    colors = readThemeColors();
+    redrawAll();
+  });
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(redrawAll, 120);
+  });
+
+  // ---- Tilt toward the cursor ------------------------------------------
+  if (finePointer && !reduceMotion) {
+    document.querySelectorAll<HTMLElement>('[data-tilt]').forEach((tile) => {
+      tile.addEventListener('pointermove', (e) => {
+        const r = tile.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        tile.style.setProperty('--rx', `${(-y * 5).toFixed(2)}deg`);
+        tile.style.setProperty('--ry', `${(x * 6).toFixed(2)}deg`);
+      });
+      tile.addEventListener('pointerleave', () => {
+        tile.style.setProperty('--rx', '0deg');
+        tile.style.setProperty('--ry', '0deg');
+      });
+    });
+  }
+
+  // ---- Filters -----------------------------------------------------------
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+  const cards = [...document.querySelectorAll<HTMLElement>('[data-project]')];
+  const count = document.querySelector<HTMLElement>('[data-count]')!;
+
+  function apply(filter: string) {
+    let shown = 0;
+    for (const card of cards) {
+      const match = filter === 'all' || (card.dataset.area ?? '').split(' ').includes(filter);
+      card.hidden = !match;
+      if (match) {
+        shown++;
+        card.classList.add('in');
+      }
+    }
+    count.textContent = `${shown} of ${cards.length}`;
+    for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
+    redrawAll();
+  }
+  for (const b of buttons) {
+    b.addEventListener('click', () => {
+      const run = () => apply(b.dataset.filter!);
+      // Animate the reshuffle where the browser supports it.
+      if (!reduceMotion && 'startViewTransition' in document) {
+        (document as Document & { startViewTransition: (cb: () => void) => void }).startViewTransition(run);
+      } else {
+        run();
+      }
+    });
+  }
+  count.textContent = `${cards.length} of ${cards.length}`;
+</script>
+
+<style>
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+  .filter {
+    padding: 8px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--rule);
+    background: transparent;
+    font-size: 14px;
+    color: var(--ink-soft);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .filter:hover {
+    border-color: var(--accent);
+    color: var(--ink);
+  }
+  .filter[aria-pressed='true'] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+  }
+  .count {
+    margin-left: auto;
+  }
+
+  .grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+    gap: clamp(16px, 2vw, 26px);
+  }
+  .project {
+    perspective: 1100px;
+  }
+  .project[hidden] {
+    display: none;
+  }
+  .tile {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--bg-raised);
+    overflow: hidden;
+    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform 0.25s ease-out, border-color 0.3s, box-shadow 0.3s;
+    will-change: transform;
+  }
+  .tile:hover,
+  .tile:focus-within {
+    border-color: var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .cover {
+    position: relative;
+    aspect-ratio: 16 / 8.5;
+    background: var(--bg-sunk);
+    border-bottom: 1px solid var(--rule);
+  }
+  .cover canvas {
+    width: 100%;
+    height: 100%;
+  }
+  .year {
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .body {
+    padding: 22px 22px 24px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  h3 {
+    font-size: 28px;
+    margin-bottom: 6px;
+  }
+  .blurb {
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+  .detail {
+    color: var(--ink-soft);
+    font-size: 15.5px;
+    margin-bottom: 18px;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
+    margin: auto 0 18px;
+    padding: 0;
+  }
+  .source {
+    font-size: 14.5px;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--accent);
+    align-self: start;
+  }
+  .source span {
+    display: inline-block;
+    transition: transform 0.2s;
+  }
+  .source:hover span {
+    transform: translate(2px, -2px);
+  }
+</style>

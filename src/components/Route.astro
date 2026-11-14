@@ -1,0 +1,241 @@
+---
+import { experience } from '../data/site';
+
+---
+
+<section class="section" id="experience" aria-labelledby="route-title">
+  <div class="wrap">
+    <header class="section-head">
+      <p class="label" data-reveal><b>01</b> &nbsp;/&nbsp; Experience</p>
+      <h2 id="route-title" data-reveal>Where I have <em>worked</em></h2>
+      <p data-reveal>
+        Nine years in software, after three as a process safety engineer. Newest first.
+      </p>
+    </header>
+
+    <div class="route" data-route>
+      <div class="rope" aria-hidden="true"><div class="rope-fill" data-rope></div></div>
+      <ol class="pitches">
+      {
+        experience.map((role) => (
+          <li class="pitch" data-pitch data-reveal>
+            <div class="bolt" aria-hidden="true" />
+            <div class="when">
+              <span class="dates">
+                {role.start} – {role.end}
+              </span>
+              {role.location && <span class="place">{role.location}</span>}
+            </div>
+            <article class="card">
+              <h3>
+                {role.title} <span class="at">{role.company === 'hackathons' ? 'via' : 'at'}</span> {role.company}
+              </h3>
+              <p class="summary">{role.summary}</p>
+              {role.highlights.length > 0 && (
+                <ul class="highlights">
+                  {role.highlights.map((h) => (
+                    <li>{h}</li>
+                  ))}
+                </ul>
+              )}
+              {role.stack.length > 0 && (
+                <ul class="stack" aria-label="Technologies">
+                  {role.stack.map((s) => (
+                    <li class="chip">{s}</li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          </li>
+        ))
+      }
+      </ol>
+    </div>
+  </div>
+</section>
+
+<script>
+  // The timeline line fills as you scroll, and each marker lights up as the line reaches it.
+  const route = document.querySelector<HTMLElement>('[data-route]');
+  const rope = document.querySelector<HTMLElement>('[data-rope]');
+  if (route && rope) {
+    const pitches = [...route.querySelectorAll<HTMLElement>('[data-pitch]')];
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const rect = route.getBoundingClientRect();
+      const anchor = window.innerHeight * 0.62;
+      const progress = Math.max(0, Math.min(1, (anchor - rect.top) / rect.height));
+      rope.style.transform = `scaleY(${progress})`;
+      for (const p of pitches) {
+        p.classList.toggle('clipped', p.getBoundingClientRect().top + 14 < anchor);
+      }
+    };
+    const request = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    window.addEventListener('scroll', request, { passive: true });
+    window.addEventListener('resize', request);
+    update();
+  }
+</script>
+
+<style>
+  .route {
+    --rail: 190px;
+    position: relative;
+  }
+  .pitches {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: clamp(28px, 4vw, 48px);
+  }
+  .rope {
+    position: absolute;
+    left: calc(var(--rail) + 20px);
+    top: 14px;
+    bottom: 0;
+    width: 2px;
+    background: repeating-linear-gradient(to bottom, var(--rule-strong) 0 6px, transparent 6px 12px);
+  }
+  .rope-fill {
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform-origin: top;
+    transform: scaleY(0);
+    will-change: transform;
+  }
+  .pitch {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--rail) 42px minmax(0, 1fr);
+    align-items: start;
+  }
+  .bolt {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    width: 14px;
+    height: 14px;
+    margin-top: 7px;
+    border-radius: 2px;
+    rotate: 45deg;
+    border: 2px solid var(--rule-strong);
+    background: var(--bg);
+    position: relative;
+    z-index: 1;
+    transition: border-color 0.3s, background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+  }
+  .pitch.clipped .bolt {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: 0 0 0 4px var(--bg), 0 0 0 5.5px var(--accent);
+    transform: scale(1.05);
+  }
+  .when {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    gap: 4px;
+    text-align: right;
+    padding-top: 4px;
+  }
+  .dates {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .place {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .card {
+    grid-column: 3;
+    padding: clamp(20px, 2.6vw, 30px);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--bg-raised);
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .pitch.clipped .card {
+    border-color: var(--rule-strong);
+  }
+  h3 {
+    font-size: clamp(24px, 2.6vw, 32px);
+    line-height: 1.05;
+    margin-bottom: 12px;
+  }
+  .at {
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .summary {
+    color: var(--ink-soft);
+    max-width: 68ch;
+  }
+  .highlights {
+    margin: 0 0 18px;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+    max-width: 70ch;
+  }
+  .highlights li {
+    position: relative;
+    padding-left: 22px;
+    color: var(--ink-soft);
+  }
+  .highlights li::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 0.62em;
+    width: 9px;
+    height: 1.5px;
+    background: var(--accent);
+  }
+  .stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  @media (max-width: 760px) {
+    .route {
+      --rail: 0px;
+    }
+    .rope {
+      left: 7px;
+    }
+    .pitch {
+      grid-template-columns: 30px minmax(0, 1fr);
+      row-gap: 10px;
+    }
+    .bolt {
+      grid-column: 1;
+      justify-self: start;
+    }
+    .when {
+      grid-column: 2;
+      text-align: left;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      align-items: baseline;
+    }
+    .card {
+      grid-column: 2;
+      grid-row: 2;
+    }
+  }
+</style>

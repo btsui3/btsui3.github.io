@@ -1,0 +1,249 @@
+---
+import { profile } from '../data/site';
+
+const commands = [
+  { label: 'Go to top', hint: 'Home', href: '/' },
+  { label: 'Experience', hint: 'Work', href: '/#experience' },
+  { label: 'Projects', hint: 'Work', href: '/#projects' },
+  { label: 'Skills', hint: 'Work', href: '/#skills' },
+  { label: 'Off the clock', hint: 'Outside', href: '/#off-the-clock' },
+  { label: 'Writing', hint: 'Blog', href: '/blog/' },
+  { label: 'Get in touch', hint: 'Contact', href: '/#contact' },
+  { label: 'Switch light / dark theme', hint: 'Theme', action: 'toggle-theme' },
+  { label: 'Place a random summit', hint: 'Play', action: 'place-summit' },
+  { label: 'Open GitHub', hint: 'External', href: profile.links.github, external: true },
+  { label: 'Open LinkedIn', hint: 'External', href: profile.links.linkedin, external: true },
+];
+---
+
+<dialog class="palette" data-palette aria-label="Command palette">
+  <form method="dialog" class="box">
+    <div class="field">
+      <span aria-hidden="true">›</span>
+      <input
+        type="text"
+        data-palette-input
+        placeholder="Jump to..."
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Search commands"
+        aria-controls="palette-list"
+      />
+      <kbd>esc</kbd>
+    </div>
+    <ul id="palette-list" role="listbox" data-palette-list>
+      {
+        commands.map((c) => (
+          <li role="option" aria-selected="false" data-label={c.label.toLowerCase() + ' ' + c.hint.toLowerCase()}>
+            {c.href ? (
+              <a href={c.href} target={c.external ? '_blank' : undefined} rel={c.external ? 'noopener' : undefined}>
+                <span>{c.label}</span>
+                <small>{c.hint}</small>
+              </a>
+            ) : (
+              <button type="button" data-action={c.action}>
+                <span>{c.label}</span>
+                <small>{c.hint}</small>
+              </button>
+            )}
+          </li>
+        ))
+      }
+    </ul>
+    <p class="empty" data-palette-empty hidden>No match. Try "projects" or "theme".</p>
+  </form>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('[data-palette]')!;
+  const input = dialog.querySelector<HTMLInputElement>('[data-palette-input]')!;
+  const list = dialog.querySelector<HTMLElement>('[data-palette-list]')!;
+  const empty = dialog.querySelector<HTMLElement>('[data-palette-empty]')!;
+  const options = [...list.querySelectorAll<HTMLElement>('li')];
+  let active = 0;
+
+  const visible = () => options.filter((o) => !o.hidden);
+
+  function select(index: number) {
+    const shown = visible();
+    if (shown.length === 0) return;
+    active = (index + shown.length) % shown.length;
+    options.forEach((o) => o.setAttribute('aria-selected', 'false'));
+    shown[active].setAttribute('aria-selected', 'true');
+    shown[active].scrollIntoView({ block: 'nearest' });
+  }
+
+  function filter() {
+    const q = input.value.trim().toLowerCase();
+    for (const o of options) o.hidden = q !== '' && !(o.dataset.label ?? '').includes(q);
+    empty.hidden = visible().length > 0;
+    select(0);
+  }
+
+  function open() {
+    if (dialog.open) return;
+    input.value = '';
+    filter();
+    dialog.showModal();
+    input.focus();
+  }
+
+  function run(option: HTMLElement) {
+    const control = option.querySelector<HTMLElement>('a, button')!;
+    const action = control.dataset.action;
+    dialog.close();
+    if (action) {
+      if (action === 'place-summit' && location.pathname !== '/') {
+        location.href = '/';
+        return;
+      }
+      if (action === 'place-summit') window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.dispatchEvent(new CustomEvent(action));
+    } else {
+      control.click();
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      dialog.open ? dialog.close() : open();
+    }
+  });
+  document.querySelectorAll('[data-open-palette]').forEach((b) => b.addEventListener('click', open));
+
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      select(active + 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      select(active - 1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const shown = visible();
+      if (shown[active]) run(shown[active]);
+    }
+  });
+  list.addEventListener('click', (e) => {
+    const option = (e.target as HTMLElement).closest<HTMLElement>('li');
+    if (!option) return;
+    if (option.querySelector('button')) {
+      e.preventDefault();
+      run(option);
+    } else {
+      dialog.close();
+    }
+  });
+  list.addEventListener('pointermove', (e) => {
+    const option = (e.target as HTMLElement).closest<HTMLElement>('li');
+    if (option) select(visible().indexOf(option));
+  });
+  // Click on the backdrop closes.
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+</script>
+
+<style>
+  .palette {
+    width: min(560px, calc(100vw - 32px));
+    margin-top: 14vh;
+    padding: 0;
+    border: 1px solid var(--rule-strong);
+    border-radius: 6px;
+    background: var(--bg-raised);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .palette::backdrop {
+    background: color-mix(in srgb, var(--bg-sunk) 70%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .palette[open] {
+    animation: pop 0.18s ease-out;
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.98);
+    }
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--accent);
+    font-family: var(--font-mono);
+  }
+  input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: 0;
+    outline: 0;
+    color: var(--ink);
+    font: inherit;
+    font-family: var(--font-body);
+    font-size: 17px;
+  }
+  input::placeholder {
+    color: var(--muted);
+  }
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 2px 6px;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 8px;
+    max-height: min(52vh, 420px);
+    overflow-y: auto;
+  }
+  li a,
+  li button {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 11px 12px;
+    border: 0;
+    border-radius: 3px;
+    background: none;
+    text-align: left;
+    text-decoration: none;
+    font-size: 15.5px;
+    color: var(--ink);
+  }
+  li small {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  li[aria-selected='true'] a,
+  li[aria-selected='true'] button {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  li[aria-selected='true'] small {
+    color: var(--accent);
+  }
+  .empty {
+    margin: 0;
+    padding: 18px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+</style>

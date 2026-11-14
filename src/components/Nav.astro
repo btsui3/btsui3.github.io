@@ -1,0 +1,217 @@
+---
+import { profile } from '../data/site';
+
+interface Props {
+  home?: boolean;
+}
+const { home = false } = Astro.props;
+const base = home ? '' : '/';
+const links = [
+  { href: `${base}#experience`, label: 'Experience' },
+  { href: `${base}#projects`, label: 'Projects' },
+  { href: `${base}#skills`, label: 'Skills' },
+  { href: '/blog/', label: 'Writing' },
+  { href: `${base}#contact`, label: 'Contact' },
+];
+---
+
+<header class="nav" data-nav>
+  <div class="progress" data-progress aria-hidden="true"></div>
+  <div class="wrap bar">
+    <a class="brand" href="/" aria-label={`${profile.name}, home`}>
+      <svg viewBox="0 0 28 28" width="26" height="26" aria-hidden="true">
+        <path d="M2 23c4-9 7-16 12-16s8 7 12 16" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".5"></path>
+        <path d="M8 23c2.500-5 4-9 6-9s3.500 4 6 9" fill="none" stroke="currentColor" stroke-width="1.4"></path>
+        <circle cx="14" cy="5" r="2" fill="var(--hot)"></circle>
+      </svg>
+      <span>{profile.name}</span>
+    </a>
+
+    <nav aria-label="Primary">
+      <ul>
+        {links.map((l) => (
+          <li>
+            <a href={l.href}>{l.label}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <div class="tools">
+      <button class="kbd" type="button" data-open-palette aria-label="Open command palette">
+        <span class="kbd-wide">Jump to</span>
+        <span class="kbd-narrow">Menu</span>
+        <kbd>⌘K</kbd>
+      </button>
+      <button class="icon" type="button" data-theme-toggle aria-label="Switch between light and dark theme">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.200" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+          <path
+            d="M12 2.500v2.500M12 19v2.500M2.500 12H5M19 12h2.500M5.300 5.300 7 7M17 17l1.700 1.700M5.300 18.700 7 17M17 7l1.700-1.700"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<script>
+  const nav = document.querySelector<HTMLElement>('[data-nav]')!;
+  const progress = nav.querySelector<HTMLElement>('[data-progress]')!;
+  const onScroll = () => {
+    nav.classList.toggle('scrolled', window.scrollY > 24);
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.transform = `scaleX(${max > 0 ? Math.min(1, window.scrollY / max) : 0})`;
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  function currentTheme(): 'light' | 'dark' {
+    const set = document.documentElement.dataset.theme;
+    if (set === 'light' || set === 'dark') return set;
+    return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  function toggleTheme() {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem('theme', next);
+    } catch {
+      /* private mode: the choice just will not persist */
+    }
+    window.dispatchEvent(new CustomEvent('themechange'));
+  }
+  document.querySelector('[data-theme-toggle]')?.addEventListener('click', toggleTheme);
+  window.addEventListener('toggle-theme', toggleTheme);
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', () =>
+    window.dispatchEvent(new CustomEvent('themechange')),
+  );
+</script>
+
+<style>
+  .nav {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 50;
+    transition: background-color 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+    border-bottom: 1px solid transparent;
+  }
+  .nav.scrolled {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border-bottom-color: var(--rule);
+  }
+  .progress {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--accent);
+    transform-origin: left;
+    transform: scaleX(0);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    height: 68px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-size: 21px;
+    font-weight: 800;
+    font-stretch: 75%;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .brand:hover {
+    color: var(--ink);
+  }
+  nav ul {
+    display: flex;
+    gap: clamp(14px, 2.4vw, 30px);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  nav a {
+    font-size: 14.5px;
+    text-decoration: none;
+    color: var(--ink-soft);
+    position: relative;
+    padding: 6px 0;
+  }
+  nav a::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s ease;
+  }
+  nav a:hover {
+    color: var(--ink);
+  }
+  nav a:hover::after {
+    transform: scaleX(1);
+  }
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kbd,
+  .icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--rule);
+    background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+    font-size: 13px;
+    color: var(--ink-soft);
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .icon {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .kbd:hover,
+  .icon:hover {
+    border-color: var(--accent);
+    color: var(--ink);
+  }
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .kbd-narrow {
+    display: none;
+  }
+  @media (max-width: 860px) {
+    nav,
+    .kbd-wide,
+    .kbd kbd {
+      display: none;
+    }
+    .kbd-narrow {
+      display: inline;
+    }
+  }
+</style>

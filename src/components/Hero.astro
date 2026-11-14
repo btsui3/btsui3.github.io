@@ -1,0 +1,398 @@
+---
+import { profile } from '../data/site';
+---
+
+<section class="hero" data-hero aria-labelledby="hero-title">
+  <canvas class="terrain" data-terrain aria-hidden="true"></canvas>
+  <div class="pins" data-pins aria-hidden="true"></div>
+  <div class="veil" aria-hidden="true"></div>
+
+  <div class="wrap inner">
+    <p class="label who" data-reveal>
+      <b>▲</b>&nbsp; {profile.name} &nbsp;·&nbsp; {profile.role}
+    </p>
+    <h1 id="hero-title" data-reveal style="--delay: 80ms">
+      Software, built<br /><em>end to end.</em>
+    </h1>
+    <p class="intro" data-reveal style="--delay: 160ms">{profile.intro}</p>
+    <div class="cta" data-reveal style="--delay: 240ms">
+      <a class="btn primary" href="#projects">See the work <span aria-hidden="true">↓</span></a>
+      <a class="btn" href="#contact">Get in touch</a>
+    </div>
+  </div>
+
+  <aside class="hud" data-reveal style="--delay: 400ms" aria-hidden="true">
+    <div class="hud-row"><span>Lat</span><output data-lat>43.6150° N</output></div>
+    <div class="hud-row"><span>Lon</span><output data-lon>116.2023° W</output></div>
+    <div class="hud-row"><span>Elev</span><output data-elev>824 m</output></div>
+    <p class="hint" data-hint>Move to raise the terrain. Click to place a summit.</p>
+  </aside>
+</section>
+
+<script>
+  import { createNoise, fbm, contour, ramp, readThemeColors } from '../lib/terrain';
+
+  const hero = document.querySelector<HTMLElement>('[data-hero]')!;
+  const canvas = hero.querySelector<HTMLCanvasElement>('[data-terrain]')!;
+  const pinLayer = hero.querySelector<HTMLElement>('[data-pins]')!;
+  const latEl = hero.querySelector<HTMLElement>('[data-lat]')!;
+  const lonEl = hero.querySelector<HTMLElement>('[data-lon]')!;
+  const elevEl = hero.querySelector<HTMLElement>('[data-elev]')!;
+  const hintEl = hero.querySelector<HTMLElement>('[data-hint]')!;
+  const ctx = canvas.getContext('2d')!;
+
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const noise = createNoise(43615);
+
+  // Map constants: Boise sits at ~824 m; the noise range maps to real-looking elevations.
+  const BASE_LAT = 43.615;
+  const BASE_LON = -116.2023;
+  const LEVEL_STEP = 0.11;
+  const LEVEL_MIN = -0.99;
+  const LEVEL_COUNT = 26;
+  const GLOW_FROM = 0.74; // levels above this only exist where you raised the ground
+
+  let width = 0;
+  let height = 0;
+  let cell = 13;
+  let cols = 0;
+  let rows = 0;
+  let field = new Float32Array(0);
+  let time = 0;
+  let last = 0;
+  let running = false;
+  let visible = true;
+  let colors = readThemeColors();
+
+  type Summit = { x: number; y: number; born: number; el: HTMLElement };
+  const summits: Summit[] = [];
+  const pointer = { x: 0, y: 0, amp: 0, target: 0, lastMove: -1e9, has: false };
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = rect.width;
+    height = rect.height;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cell = width < 720 ? 11 : 13;
+    cols = Math.ceil(width / cell) + 2;
+    rows = Math.ceil(height / cell) + 2;
+    field = new Float32Array(cols * rows);
+    if (!pointer.has) {
+      pointer.x = width * 0.72;
+      pointer.y = height * 0.42;
+    }
+    draw(performance.now());
+  }
+
+  /** Ground height at a pixel, before any bumps you have added. */
+  function ground(px: number, py: number) {
+    const s = 1 / 430;
+    return fbm(noise, px * s + time * 0.016, py * s - time * 0.009, 3) * 0.72;
+  }
+
+  function bumps(px: number, py: number, now: number) {
+    let h = 0;
+    if (pointer.amp > 0.002) {
+      const dx = px - pointer.x;
+      const dy = py - pointer.y;
+      h += pointer.amp * Math.exp(-(dx * dx + dy * dy) / (2 * 120 * 120));
+    }
+    for (const s of summits) {
+      const dx = px - s.x;
+      const dy = py - s.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > 160000) continue;
+      const grow = reduceMotion ? 1 : easeOut(Math.min(1, (now - s.born) / 900));
+      h += 1.15 * grow * Math.exp(-d2 / (2 * 78 * 78));
+    }
+    return h;
+  }
+
+  const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+  const toMetres = (h: number) => Math.round(824 + (h + 0.72) * 1150);
+  const fmt = new Intl.NumberFormat('en-US');
+
+  function draw(now: number) {
+    // 1. Sample the height field.
+    let k = 0;
+    for (let j = 0; j < rows; j++) {
+      const py = (j - 1) * cell;
+      for (let i = 0; i < cols; i++) {
+        const px = (i - 1) * cell;
+        field[k++] = ground(px, py) + bumps(px, py, now);
+      }
+    }
+
+    // 2. Trace one path per elevation level.
+    ctx.clearRect(0, 0, width, height);
+
+    // A soft light under the pointer.
+    if (pointer.amp > 0.01) {
+      const [r, g, b] = colors.glow;
+      const light = ctx.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, 380);
+      light.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.07 * Math.min(1, pointer.amp / 0.6)})`);
+      light.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      ctx.fillStyle = light;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.lineCap = 'round';
+    const emit = (x1: number, y1: number, x2: number, y2: number) => {
+      ctx.moveTo((x1 - 1) * cell, (y1 - 1) * cell);
+      ctx.lineTo((x2 - 1) * cell, (y2 - 1) * cell);
+    };
+    for (let n = 0; n < LEVEL_COUNT; n++) {
+      const level = LEVEL_MIN + n * LEVEL_STEP;
+      const isIndex = n % 4 === 0;
+      const glow = level > GLOW_FROM;
+      ctx.beginPath();
+      contour(field, cols, rows, level, emit);
+      // Lines are coloured by elevation: low ground is dim and cool, high ground bright.
+      const t = (level + 0.72) / (GLOW_FROM + 0.72);
+      const alpha = colors.alphaLow + (colors.alphaHigh - colors.alphaLow) * Math.max(0, Math.min(1, t));
+      ctx.strokeStyle = glow ? colors.hot : ramp(colors.stops, t, isIndex ? Math.min(1, alpha + 0.2) : alpha);
+      ctx.globalAlpha = glow ? Math.min(1, 0.55 + (level - GLOW_FROM) * 0.9) : 1;
+      ctx.lineWidth = glow ? 1.8 : isIndex ? 1.7 : 1;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function updateHud(now: number) {
+    const lat = BASE_LAT + (0.5 - pointer.y / height) * 0.18;
+    const lon = BASE_LON + (pointer.x / width - 0.5) * 0.36;
+    latEl.textContent = `${lat.toFixed(4)}° N`;
+    lonEl.textContent = `${Math.abs(lon).toFixed(4)}° W`;
+    const h = ground(pointer.x, pointer.y) + bumps(pointer.x, pointer.y, now);
+    elevEl.textContent = `${fmt.format(toMetres(h))} m`;
+  }
+
+  function frame(now: number) {
+    if (!running) return;
+    const dt = Math.min(0.05, (now - last) / 1000 || 0);
+    last = now;
+    time += dt;
+
+    // With no pointer (phones, or a visitor who has not moved yet) the peak wanders by itself.
+    const idle = now - pointer.lastMove > 2600;
+    if (idle) {
+      const t = now / 1000;
+      pointer.x += (width * (0.62 + 0.24 * Math.sin(t * 0.21)) - pointer.x) * 0.02;
+      pointer.y += (height * (0.42 + 0.2 * Math.sin(t * 0.33 + 1.3)) - pointer.y) * 0.02;
+      pointer.target = 0.55;
+    }
+    pointer.amp += (pointer.target - pointer.amp) * 0.06;
+
+    draw(now);
+    updateHud(now);
+    requestAnimationFrame(frame);
+  }
+
+  function start() {
+    if (running || reduceMotion || !visible || document.hidden) return;
+    running = true;
+    last = performance.now();
+    requestAnimationFrame(frame);
+  }
+  function stop() {
+    running = false;
+  }
+  /** Reduced motion: no animation loop, redraw only when the visitor does something. */
+  function renderOnce() {
+    if (!reduceMotion) return;
+    pointer.amp = pointer.target;
+    const now = performance.now();
+    draw(now);
+    updateHud(now);
+  }
+
+  hero.addEventListener('pointermove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = e.clientX - rect.left;
+    pointer.y = e.clientY - rect.top;
+    pointer.target = 0.62;
+    pointer.lastMove = performance.now();
+    pointer.has = true;
+    renderOnce();
+  });
+  hero.addEventListener('pointerleave', () => {
+    pointer.lastMove = -1e9;
+  });
+
+  hero.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a, button')) return;
+    const rect = canvas.getBoundingClientRect();
+    placeSummit(e.clientX - rect.left, e.clientY - rect.top);
+  });
+
+  function placeSummit(x: number, y: number) {
+    const now = performance.now();
+    const elevation = toMetres(ground(x, y) + bumps(x, y, now) + 1.15);
+    const el = document.createElement('div');
+    el.className = 'pin';
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.innerHTML = `<i></i><span>${fmt.format(elevation)} m</span>`;
+    pinLayer.append(el);
+    summits.push({ x, y, born: now, el });
+    if (summits.length > 6) summits.shift()!.el.remove();
+    hintEl.textContent =
+      summits.length === 1 ? 'Summit placed. Click again to add more.' : `${summits.length} summits placed.`;
+    renderOnce();
+  }
+  // The command palette can trigger this too.
+  window.addEventListener('place-summit', () => {
+    placeSummit(width * (0.35 + Math.random() * 0.55), height * (0.2 + Math.random() * 0.5));
+  });
+
+  new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    if (visible) start();
+    else stop();
+  }).observe(hero);
+  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+  window.addEventListener('themechange', () => {
+    colors = readThemeColors();
+    if (!running) draw(performance.now());
+  });
+  new ResizeObserver(resize).observe(canvas);
+
+  resize();
+  start();
+</script>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: grid;
+    align-items: end;
+    padding-block: 120px clamp(56px, 9vh, 110px);
+    overflow: hidden;
+    isolation: isolate;
+    cursor: crosshair;
+  }
+  .terrain,
+  .pins,
+  .veil {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .terrain {
+    z-index: -3;
+  }
+  .pins {
+    z-index: -2;
+    pointer-events: none;
+  }
+  /* Calms the map behind the copy and fades it into the page below. */
+  .veil {
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(to bottom, transparent 62%, var(--bg) 100%),
+      radial-gradient(90% 70% at 18% 78%, color-mix(in srgb, var(--bg) 88%, transparent) 0%, transparent 70%);
+  }
+  .inner {
+    display: grid;
+    gap: 26px;
+    justify-items: start;
+  }
+  .inner > * {
+    cursor: auto;
+  }
+  h1 {
+    font-size: clamp(52px, 10.5vw, 148px);
+    line-height: 0.9;
+  }
+  .intro {
+    max-width: 56ch;
+    font-size: clamp(17px, 1.6vw, 20px);
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+  }
+
+  .hud {
+    position: absolute;
+    right: var(--gutter);
+    top: 104px;
+    width: 232px;
+    padding: 14px 16px;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--bg) 62%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    pointer-events: none;
+  }
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .hud-row output {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+  .hint {
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--rule-strong);
+    color: var(--accent);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .pins :global(.pin) {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink);
+    animation: pin-in 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  }
+  .pins :global(.pin i) {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 10px solid var(--hot);
+  }
+  .pins :global(.pin span) {
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  @keyframes pin-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4);
+    }
+  }
+
+  @media (max-width: 900px) {
+    .hud {
+      display: none;
+    }
+  }
+</style>
